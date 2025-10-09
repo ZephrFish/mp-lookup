@@ -1,0 +1,202 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Infrastructure for MP Email Tool with Cloudflare DNS integration'
+
+Parameters:
+  GitHubUsername:
+    Type: String
+    Description: Your GitHub username
+    MinLength: 1
+  CloudflareAPIToken:
+    Type: String
+    Description: Cloudflare API Token with DNS edit permissions
+    NoEcho: true
+  CloudflareZoneID:
+    Type: String
+    Description: Cloudflare Zone ID for yxz.red domain
+  CloudflareAccountID:
+    Type: String
+    Description: Cloudflare Account ID (optional)
+    Default: ''
+
+Resources:
+  # Secrets Manager for Cloudflare credentials
+  CloudflareSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: cloudflare-api-credentials
+      Description: Cloudflare API credentials for MP Email Tool
+      SecretString: !Sub |
+        {
+          "api_token": "${CloudflareAPIToken}",
+          "zone_id": "${CloudflareZoneID}",
+          "account_id": "${CloudflareAccountID}"
+        }
+      Tags:
+        - Key: Application
+          Value: mp-email-tool
+
+  # IAM Role for Lambda
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: mp-email-lambda-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: SecretsManagerAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource: !Ref CloudflareSecret
+
+  # Lambda Layer for dependencies
+  LambdaDependenciesLayer:
+    Type: AWS::Lambda::LayerVersion
+    Properties:
+      LayerName: mp-email-dependencies
+      Description: Python dependencies for MP Email Tool
+      Content:
+        S3Bucket: !Sub 'mp-email-deployment-${AWS::AccountId}'
+        S3Key: layers/dependencies.zip
+      CompatibleRuntimes:
+        - python3.9
+
+  # Lambda Function
+  DNSManagementFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: mp-email-dns-manager
+      Runtime: python3.9
+      Handler: lambda_function.lambda_handler
+      Timeout: 30
+      MemorySize: 256
+      Layers:
+        - !Ref LambdaDependenciesLayer
+      Environment:
+        Variables:
+          CLOUDFLARE_SECRET_NAME: !Ref CloudflareSecret
+          GITHUB_USERNAME: !Ref GitHubUsername
+      Code:
+        ZipFile: |
+          # Placeholder - actual code will be deployed separately
+          def lambda_handler(event, context):
+              return {'statusCode': 200, 'body': 'Placeholder'}
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Tags:
+        - Key: Application
+          Value: mp-email-tool
+
+  # API Gateway
+  DNSManagementAPI:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: mp-email-dns-api
+      Description: API for MP Email Tool DNS management
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+
+  # API Gateway Resource
+  DNSDeployResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref DNSManagementAPI
+      ParentId: !GetAtt DNSManagementAPI.RootResourceId
+      PathPart: deploy-dns
+
+  # API Gateway Method
+  DNSDeployMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref DNSManagementAPI
+      ResourceId: !Ref DNSDeployResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${DNSManagementFunction.Arn}/invocations'
+      MethodResponses:
+        - StatusCode: 200
+          ResponseModels:
+            application/json: Empty
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # Lambda Permission for API Gateway
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref DNSManagementFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${DNSManagementAPI}/*/*'
+
+  # API Gateway Deployment
+  APIDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - DNSDeployMethod
+    Properties:
+      RestApiId: !Ref DNSManagementAPI
+      StageName: prod
+
+  # S3 Bucket for static hosting (backup)
+  StaticHostingBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'mp-email-backup-${AWS::AccountId}'
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: error.html
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+      Tags:
+        - Key: Application
+          Value: mp-email-tool
+
+  # Bucket Policy
+  StaticHostingBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref StaticHostingBucket
+      PolicyDocument:
+        Statement:
+          - Sid: PublicReadGetObject
+            Effect: Allow
+            Principal: '*'
+            Action:
+              - s3:GetObject
+            Resource: !Sub '${StaticHostingBucket.Arn}/*'
+
+Outputs:
+  APIEndpoint:
+    Description: API Gateway endpoint URL for DNS management
+    Value: !Sub 'https://${DNSManagementAPI}.execute-api.${AWS::Region}.amazonaws.com/prod/deploy-dns'
+    Export:
+      Name: !Sub '${AWS::StackName}-APIEndpoint'
+  
+  S3BackupURL:
+    Description: S3 static hosting backup URL
+    Value: !GetAtt StaticHostingBucket.WebsiteURL
+    Export:
+      Name: !Sub '${AWS::StackName}-S3BackupURL'
+  
+  LambdaFunctionName:
+    Description: Name of the Lambda function
+    Value: !Ref DNSManagementFunction
+    Export:
+      Name: !Sub '${AWS::StackName}-LambdaFunctionName'

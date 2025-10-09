@@ -1,0 +1,45 @@
+service: mp-email-deployment
+
+provider:
+  name: aws
+  runtime: python3.9
+  region: eu-west-1
+  stage: ${opt:stage, 'prod'}
+  
+  environment:
+    CLOUDFLARE_SECRET_NAME: cloudflare-api-credentials
+    GITHUB_USERNAME: ${opt:github-username, ''}
+  
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - secretsmanager:GetSecretValue
+          Resource:
+            - !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:cloudflare-api-credentials-*'
+
+functions:
+  deployDNS:
+    handler: lambda_function.lambda_handler
+    timeout: 30
+    events:
+      - http:
+          path: deploy-dns
+          method: post
+          cors: true
+
+plugins:
+  - serverless-python-requirements
+
+custom:
+  pythonRequirements:
+    dockerizePip: non-linux
+    layer: true
+    
+package:
+  exclude:
+    - node_modules/**
+    - .git/**
+    - .serverless/**
+    - tests/**

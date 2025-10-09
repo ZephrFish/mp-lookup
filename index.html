@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Your MP - Online Safety Act & Digital IDs</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-content">
+                <div>
+                    <h1>Email Your MP</h1>
+                    <p class="subtitle">Contact your Member of Parliament about the Online Safety Act and Digital IDs</p>
+                </div>
+                <button id="themeToggle" class="theme-toggle" aria-label="Toggle dark mode">
+                    <span class="theme-icon">🌙</span>
+                </button>
+            </div>
+        </header>
+
+        <main>
+            <section class="mp-finder">
+                <h2>Find Your MP</h2>
+                <div class="privacy-notice">
+                    <p><strong>Privacy Notice:</strong> Your postcode is used solely to identify your MP through the official Parliament API. No postcodes or personal data are stored - this is a completely serverless, client-side application that processes everything locally in your browser.</p>
+                </div>
+                <div class="postcode-form">
+                    <label for="postcode">Enter your postcode:</label>
+                    <input type="text" id="postcode" placeholder="e.g., SW1A 0AA" maxlength="10">
+                    <button id="findMpBtn" type="button">Find MP</button>
+                </div>
+                <div id="mpResult" class="mp-result hidden"></div>
+                <div id="error" class="error hidden"></div>
+            </section>
+
+            <section class="topics">
+                <h2>Select a Topic</h2>
+                <div class="topic-cards">
+                    <div class="topic-card" data-topic="osa">
+                        <h3>Online Safety Act</h3>
+                        <p>Express concerns about the Online Safety Act, recent data breaches, and their implications.</p>
+                        <a href="https://petition.parliament.uk/petitions/722903" target="_blank" rel="noopener">View Petition</a>
+                    </div>
+                    <div class="topic-card" data-topic="digitalid">
+                        <h3>Digital ID Cards</h3>
+                        <p>Share your views on the proposed Digital ID system and its potential impacts.</p>
+                        <a href="https://petition.parliament.uk/petitions/730194" target="_blank" rel="noopener">View Petition</a>
+                    </div>
+                    <div class="topic-card" data-topic="combined">
+                        <h3>Both Issues Combined</h3>
+                        <p>Address both the Online Safety Act and Digital ID concerns in a single comprehensive email.</p>
+                        <a href="https://petition.parliament.uk/petitions" target="_blank" rel="noopener">View All Petitions</a>
+                    </div>
+                </div>
+            </section>
+
+            <section id="emailSection" class="email-section hidden">
+                <h2>Compose Your Email</h2>
+                <div class="email-form">
+                    <div class="form-group">
+                        <label for="templateSelect">Choose Template:</label>
+                        <select id="templateSelect" class="form-select">
+                            <!-- Options populated by JavaScript -->
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="signoffSelect">Choose Sign-off:</label>
+                        <select id="signoffSelect" class="form-select">
+                            <!-- Options populated by JavaScript -->
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="senderName">Your Name:</label>
+                        <input type="text" id="senderName" placeholder="Your full name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="senderEmail">Your Email:</label>
+                        <input type="email" id="senderEmail" placeholder="your.email@example.com" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="senderAddress">Your Address (optional):</label>
+                        <textarea id="senderAddress" rows="3" placeholder="Your address in the constituency"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="emailSubject">Subject:</label>
+                        <input type="text" id="emailSubject" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label for="emailBody">Message:</label>
+                        <textarea id="emailBody" rows="15"></textarea>
+                    </div>
+                    <div class="button-group">
+                        <button id="copyEmailBtn" type="button">Copy Email</button>
+                        <button id="mailtoBtn" type="button">Open in Email Client</button>
+                    </div>
+                    <div id="copySuccess" class="success hidden">Email copied to clipboard!</div>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>This tool helps you contact your MP about important digital rights issues. The petitions referenced have not received adequate government responses.</p>
+            <p class="privacy-footer">Privacy-First Design: This is a serverless, client-side application. All processing happens locally in your browser. No personal data, postcodes, or email content is ever stored or transmitted to any server.</p>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
